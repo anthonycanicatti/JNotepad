@@ -113,6 +113,7 @@ public class JavaNotepad extends javax.swing.JFrame {
         addMouseListenerToTextArea();
     }
 
+  
     private void setIcons(){
         ArrayList<Image> iconList = new ArrayList<>();
         iconList.add(new ImageIcon("res/icons/jn16.png").getImage());
@@ -999,26 +1000,6 @@ public class JavaNotepad extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_formWindowIconified
 
-    private static final int PORT = 9999;
-    private static ServerSocket socket;    
-
-    private static void checkIfRunning() {
-        try {
-            //Bind to localhost adapter with a zero connection queue 
-            socket = new ServerSocket(PORT,0,InetAddress.getByAddress(new byte[] {127,0,0,1}));
-        }
-        catch (BindException e) {
-            JOptionPane.showMessageDialog(console, "JNotepad already running!", "Error",
-                    JOptionPane.ERROR_MESSAGE);
-            System.err.println("Already running.");
-            System.exit(1);
-        }
-        catch (IOException e) {
-            System.err.println("Unexpected error.");
-            e.printStackTrace();
-            System.exit(2);
-        }
-    }
     
     class CustomFilter extends javax.swing.filechooser.FileFilter {
 
@@ -1050,7 +1031,6 @@ public class JavaNotepad extends javax.swing.JFrame {
             java.util.logging.Logger.getLogger(JavaNotepad.class.getName()).log(java.util.logging.Level.SEVERE, null, ex);
         }
 
-        checkIfRunning();
         /* Create and display the form */
         java.awt.EventQueue.invokeLater(new Runnable() {
             @Override
