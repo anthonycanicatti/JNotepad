@@ -71,22 +71,25 @@ public class JavaNotepad extends javax.swing.JFrame {
     TrayIcon trayIcon;
     boolean wasIconified = false;
     JavaNotepad myself;
+    PrefUtility prefs;
     
     /**
      * Creates new form JavaNotepad
      */
     public JavaNotepad() {
         initComponents();
-        this.setLocationRelativeTo(null);
         this.addWindowListener(new WindowAdapter(){
             @Override
             public void windowClosing(WindowEvent e){
+                saveSizeAndLoc();
                 console.dispose();
                 dispose();
             }
         });
         setIcons();
         myself = this;
+        prefs = PrefUtility.getInstance();
+        getSizeAndLoc();
         
         hPainter = new DefaultHighlighter.DefaultHighlightPainter(Color.YELLOW);
         
@@ -113,7 +116,36 @@ public class JavaNotepad extends javax.swing.JFrame {
         addMouseListenerToTextArea();
     }
 
-  
+    private void saveSizeAndLoc(){
+        int width = myself.getWidth();
+        int height = myself.getHeight();
+        String size = ""+width+","+height;
+        prefs.setSize(size);
+        
+        int x = myself.getX();
+        int y = myself.getY();
+        String loc = ""+x+","+y;
+        prefs.setLoc(loc);
+    }
+    
+    private void getSizeAndLoc(){
+        String size = prefs.getSize();
+        String[] sizeParts = size.split(",");
+        int width = Integer.parseInt(sizeParts[0]);
+        int height = Integer.parseInt(sizeParts[1]);
+        this.setSize(width, height);
+        
+        String loc = prefs.getLoc();
+        if(loc.equals("default")){
+            this.setLocationRelativeTo(null);
+            return;
+        }
+        String[] locParts = loc.split(",");
+        int x = Integer.parseInt(locParts[0]);
+        int y = Integer.parseInt(locParts[1]);
+        this.setLocation(x, y);
+    }
+    
     private void setIcons(){
         ArrayList<Image> iconList = new ArrayList<>();
         iconList.add(new ImageIcon("res/icons/jn16.png").getImage());
@@ -592,13 +624,13 @@ public class JavaNotepad extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 810, Short.MAX_VALUE)
+            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 650, Short.MAX_VALUE)
             .addComponent(statusPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 460, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 342, Short.MAX_VALUE)
                 .addGap(1, 1, 1)
                 .addComponent(statusPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
