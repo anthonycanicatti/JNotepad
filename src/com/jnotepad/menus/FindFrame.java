@@ -160,7 +160,10 @@ public class FindFrame extends javax.swing.JFrame {
             JOptionPane.showMessageDialog(this, "Enter a valid search query.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        notepad.highlightFound(query);
+        boolean success = notepad.highlightFound(query);
+        if(!success){
+            JOptionPane.showMessageDialog(this, "No matches found!", "Find Tool", JOptionPane.INFORMATION_MESSAGE);
+        }
     }
     
     private void cancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelButtonActionPerformed

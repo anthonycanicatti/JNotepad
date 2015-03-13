@@ -28,9 +28,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.net.BindException;
-import java.net.InetAddress;
-import java.net.ServerSocket;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -797,24 +794,22 @@ public class JavaNotepad extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_fontItemActionPerformed
 
-    public static void replaceItems(String oldS, String newS){
-        
+    public boolean replaceItems(String oldS, String newS){
         console.appendToConsole("I'm here.");
         String allText = textArea.getText();
         if(!allText.contains(oldS)){
-            JOptionPane.showMessageDialog(textArea, "No matches found!", "Replace Tool", JOptionPane.INFORMATION_MESSAGE);
-            return;
+            return false;
         }
-        
         allText = allText.replaceAll(oldS, newS);
         textArea.setText(allText);
+        return true;
     }
     
-    public static void highlightFound(String query){
+    public boolean highlightFound(String query){
         
         String allText = textArea.getText();
         if(!allText.contains(query))
-            JOptionPane.showMessageDialog(textArea, "No matches found!", "Find Tool", JOptionPane.INFORMATION_MESSAGE);
+            return false;
         else{    
             
             String pattern = query;
@@ -831,22 +826,23 @@ public class JavaNotepad extends javax.swing.JFrame {
             Highlighter.Highlight[] hilites = h.getHighlights();
             textArea.setCaretPosition(hilites[0].getStartOffset());
             clearHighlightingItem.setEnabled(true);
+            return true;
         }
     }
     
-    public static void moveCaretForward(){
+    public void moveCaretForward(){
         currItemFound++;
         Highlighter.Highlight[] hilites = h.getHighlights();
         textArea.setCaretPosition(hilites[currItemFound].getStartOffset());
     }
-    public static void moveCaretBackward(){
+    public void moveCaretBackward(){
         if(currItemFound > 0){
             currItemFound--;
             Highlighter.Highlight[] hilites = h.getHighlights();
             textArea.setCaretPosition(hilites[currItemFound].getStartOffset());
         }
     }
-    public static void resetCaret(){
+    public void resetCaret(){
         currItemFound = -1;
     }
     

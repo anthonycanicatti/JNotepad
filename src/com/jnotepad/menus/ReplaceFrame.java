@@ -133,8 +133,10 @@ public class ReplaceFrame extends javax.swing.JFrame {
             JOptionPane.showMessageDialog(this, "Enter valid search query!", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
-        notepad.replaceItems(old, newS);
-        this.dispose();
+        boolean success = notepad.replaceItems(old, newS);
+        if(!success){
+            JOptionPane.showMessageDialog(this, "No matches found!", "Replace Tool", JOptionPane.INFORMATION_MESSAGE);
+        }
     }//GEN-LAST:event_okButtonActionPerformed
 
     private void cancelButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cancelButtonActionPerformed
