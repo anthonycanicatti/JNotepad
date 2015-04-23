@@ -17,6 +17,9 @@ import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
@@ -29,6 +32,7 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
@@ -40,13 +44,18 @@ import javax.swing.JFileChooser;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
+import javax.swing.JTextArea;
 import javax.swing.Timer;
 import javax.swing.UIManager;
+import javax.swing.event.CaretEvent;
+import javax.swing.event.CaretListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultHighlighter;
+import javax.swing.text.Document;
+import javax.swing.text.Element;
 import javax.swing.text.Highlighter;
 import say.swing.JFontChooser;
 
@@ -69,6 +78,9 @@ public class JavaNotepad extends javax.swing.JFrame {
     boolean wasIconified = false;
     JavaNotepad myself;
     PrefUtility prefs;
+    boolean editorMode = false;
+    
+    int lineNum = 0;
     
     /**
      * Creates new form JavaNotepad
@@ -111,8 +123,13 @@ public class JavaNotepad extends javax.swing.JFrame {
         h = textArea.getHighlighter();
         
         addMouseListenerToTextArea();
+        addKeyListenerToTextArea();
+        
     }
-
+    
+    /**
+     * Save size and location to preferences
+     */
     private void saveSizeAndLoc(){
         int width = myself.getWidth();
         int height = myself.getHeight();
@@ -125,6 +142,9 @@ public class JavaNotepad extends javax.swing.JFrame {
         prefs.setLoc(loc);
     }
     
+    /**
+     * Retrieve size and location from preferences
+     */
     private void getSizeAndLoc(){
         String size = prefs.getSize();
         String[] sizeParts = size.split(",");
@@ -143,6 +163,9 @@ public class JavaNotepad extends javax.swing.JFrame {
         this.setLocation(x, y);
     }
     
+    /**
+     * Set icons for frame
+     */
     private void setIcons(){
         ArrayList<Image> iconList = new ArrayList<>();
         iconList.add(new ImageIcon("res/icons/jn16.png").getImage());
@@ -153,8 +176,10 @@ public class JavaNotepad extends javax.swing.JFrame {
         this.setIconImages(iconList);
     }
     
+    /**
+     * Configure right click Pop-up menu in JTextArea
+     */
     private void setUpPopup(){
-        
         JMenuItem fontPopupItem = new JMenuItem("Font...");
         fontPopupItem.addActionListener(new ActionListener(){
             @Override
@@ -220,6 +245,9 @@ public class JavaNotepad extends javax.swing.JFrame {
         popupMenu.add(wordCountPopupItem);
     }
     
+    /**
+     * Configure tray icon
+     */
     private void setUpTray(){
         BufferedImage iconImage = null;
         int iconWidth = 0;
@@ -258,6 +286,9 @@ public class JavaNotepad extends javax.swing.JFrame {
         }
     }
     
+    /**
+     * Destroy tray icon
+     */
     private void destroyTray(){
         if(sysTray != null){
             sysTray.remove(trayIcon);
@@ -288,7 +319,6 @@ public class JavaNotepad extends javax.swing.JFrame {
         });
         
         textArea.getDocument().addDocumentListener(new DocumentListener(){
-
             @Override
             public void insertUpdate(DocumentEvent e) {
                 if(textArea.getText() != null || (!textArea.getText().isEmpty())){
@@ -296,7 +326,6 @@ public class JavaNotepad extends javax.swing.JFrame {
                 }
                 updated();
             }
-
             @Override
             public void removeUpdate(DocumentEvent e) {
                 if(textArea.getText() != null || (!textArea.getText().isEmpty())){
@@ -304,11 +333,163 @@ public class JavaNotepad extends javax.swing.JFrame {
                 }
                 updated();
             }
-
             @Override
             public void changedUpdate(DocumentEvent e) {}
             public void updated(){}
         });
+    }
+
+    private String getLastWord(){
+        String word = "";
+        ArrayList<Character> wordArr = new ArrayList<>();
+        int start = textArea.getCaretPosition();
+        while(true){
+            if(start > 0){
+                start--;
+                char c = textArea.getText().charAt(start);
+                if(c != ' ' && start != 0)
+                    wordArr.add(c);
+                else if(start == 0)
+                    return textArea.getText();
+                else
+                    break;
+            }
+        }
+        Collections.reverse(wordArr);
+        for(char c : wordArr)
+            word+=c;
+        return word;
+    }
+    
+    private void addKeyListenerToTextArea(){
+        KeyListener keyListener = new KeyAdapter(){
+            @Override
+            public void keyReleased(KeyEvent e){
+                if(!editorMode)
+                    return;
+                if(e.getKeyCode()==KeyEvent.VK_BACK_SPACE)
+                    return;
+                else if(e.getKeyCode()==KeyEvent.VK_ENTER)
+                    handleEnter();
+                
+                char typed = e.getKeyChar();
+                if(typed == '{')
+                    handleOpenBrace();
+                else if(typed == '(')
+                    handleOpenParens();
+                else if(typed == '*')
+                    handleCommentBlock();
+                else if(typed == '"')
+                    handleOpenQuote();
+                else if(typed == ';')
+                    handleSemiColon();
+            }
+        };
+        textArea.addKeyListener(keyListener);
+    }
+    
+    private void handleSemiColon(){
+        try {
+            int line = textArea.getLineOfOffset(textArea.getCaretPosition());
+            int start = textArea.getLineStartOffset(line);
+            int end = textArea.getLineEndOffset(line);
+            String text = textArea.getText(start, end-start);
+            text = text.replace("\t", "").replace("\n", "");
+            if(textArea.getCaretPosition() != (end-start)){
+                if(!text.endsWith(";")){
+                    if(text.contains("(") && text.contains(")")){
+                        textArea.getDocument().remove(textArea.getCaretPosition()-1, 1);
+                        textArea.insert(";", end-2);
+                        textArea.setCaretPosition(end-1);
+                    }
+                }
+            }
+            System.out.println("Text from semicolon: "+text);
+        } catch(BadLocationException ble){
+            System.err.println("BadLocation: "+ble.getLocalizedMessage());
+        }
+    }
+    
+    private void handleEnter(){
+        try {
+            tabOver(textArea.getCaretPosition());
+            int line = textArea.getLineOfOffset(textArea.getCaretPosition())+1;
+            int start = textArea.getLineStartOffset(line);
+            int end = textArea.getLineEndOffset(line);
+            String lineText = textArea.getText(start, end - start);
+            lineText = lineText.replace("\t", "");
+            System.out.println("Line text from enter: "+lineText);
+            if(lineText.startsWith("/*")||lineText.startsWith("*"))
+                textArea.insert("* ", textArea.getCaretPosition());
+        } catch (BadLocationException ex) {
+            System.err.println("BadLocation: "+ex.getLocalizedMessage());
+        }
+    }
+
+    private void handleOpenBrace(){
+        textArea.insert("\n", textArea.getCaretPosition());
+        tabOver(textArea.getCaretPosition());
+        int pos = textArea.getCaretPosition();
+        textArea.insert("\n", textArea.getCaretPosition());
+        
+        for(int i=0; i<getNumTabsBefore(textArea.getCaretPosition())-1; i++)
+            textArea.insert("\t", textArea.getCaretPosition());
+        textArea.insert("}", textArea.getCaretPosition());
+        textArea.setCaretPosition(pos);
+    }
+    
+    private void handleOpenParens(){
+        int pos = textArea.getCaretPosition();
+        textArea.insert(")", pos);
+        textArea.setCaretPosition(pos);
+    }
+    
+    private void handleCommentBlock(){
+        String word = getLastWord();
+        System.out.println("Last word: "+word);
+        if(word.contains("/*")){
+            System.out.println("I'm here");
+            textArea.insert("\n", textArea.getCaretPosition());
+            tabOver(textArea.getCaretPosition());
+            int pos1 = textArea.getCaretPosition();
+            textArea.insert("* \n", pos1);
+            tabOver(textArea.getCaretPosition());
+            textArea.insert("*/", textArea.getCaretPosition());
+            textArea.setCaretPosition(pos1+2);
+        }
+    }
+    
+    private void handleOpenQuote(){
+        int pos = textArea.getCaretPosition();
+        textArea.insert("\"", pos);
+        textArea.setCaretPosition(pos);
+    }
+    
+    private void tabOver(int pos){
+        int numTimes = getNumTabsBefore(pos);
+        System.out.println("times to tab over: "+numTimes);
+        for(int i=0; i<numTimes; i++)
+            textArea.insert("\t", textArea.getCaretPosition());
+    }
+    
+    private int getNumTabsBefore(int index){
+        String allText = textArea.getText().substring(0, index);
+        System.out.println("Evaluating text: "+allText);
+        int lastIndex = 0;
+        int numTabs=0;
+        while(lastIndex != -1){
+            lastIndex = allText.indexOf("{", lastIndex);
+            if(lastIndex != -1){
+                numTabs++;
+                lastIndex+=1;
+            }
+        }
+        for(int i=0; i<allText.length(); i++){
+            char c = allText.charAt(i);
+            if(c == '}')
+                numTabs--;
+        }
+        return numTabs;
     }
 
     /**
@@ -353,6 +534,7 @@ public class JavaNotepad extends javax.swing.JFrame {
         wordCountItem = new javax.swing.JMenuItem();
         developerMenu = new javax.swing.JMenu();
         consoleItem = new javax.swing.JMenuItem();
+        editorModeItem = new javax.swing.JCheckBoxMenuItem();
         helpMenu = new javax.swing.JMenu();
         aboutItem = new javax.swing.JMenuItem();
 
@@ -598,6 +780,14 @@ public class JavaNotepad extends javax.swing.JFrame {
             }
         });
         developerMenu.add(consoleItem);
+
+        editorModeItem.setText("Editor Mode");
+        editorModeItem.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                editorModeItemActionPerformed(evt);
+            }
+        });
+        developerMenu.add(editorModeItem);
 
         toolsMenu.add(developerMenu);
 
@@ -862,7 +1052,7 @@ public class JavaNotepad extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_clearHighlightingItemActionPerformed
 
-    public static void clearHighlites(){
+    public void clearHighlites(){
         Highlighter.Highlight[] hilites = h.getHighlights();
         if(hilites.length != 0){
             h.removeAllHighlights();
@@ -883,7 +1073,7 @@ public class JavaNotepad extends javax.swing.JFrame {
         print();
     }//GEN-LAST:event_printItemActionPerformed
 
-    public static void print(){
+    public void print(){
         String defaultPrinter = null;
         try{
             defaultPrinter = PrintServiceLookup.lookupDefaultPrintService().getName();
@@ -1028,6 +1218,11 @@ public class JavaNotepad extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_formWindowIconified
 
+    private void editorModeItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editorModeItemActionPerformed
+        // TODO add your handling code here:
+        editorMode = !editorMode;
+    }//GEN-LAST:event_editorModeItemActionPerformed
+
     
     class CustomFilter extends javax.swing.filechooser.FileFilter {
 
@@ -1080,6 +1275,7 @@ public class JavaNotepad extends javax.swing.JFrame {
     private javax.swing.JMenuItem cutItem;
     private javax.swing.JMenu developerMenu;
     private javax.swing.JMenu editMenu;
+    private javax.swing.JCheckBoxMenuItem editorModeItem;
     private javax.swing.JMenuItem exitItem;
     private javax.swing.JFileChooser fileChooser;
     private javax.swing.JMenu fileMenu;
@@ -1101,7 +1297,7 @@ public class JavaNotepad extends javax.swing.JFrame {
     private javax.swing.JMenuItem saveAsItem;
     private javax.swing.JMenuItem saveItem;
     private javax.swing.JPanel statusPanel;
-    private static javax.swing.JTextArea textArea;
+    private javax.swing.JTextArea textArea;
     private javax.swing.JMenuItem textColorItem;
     private javax.swing.JMenu toolsMenu;
     private javax.swing.JMenuItem wordCountItem;
