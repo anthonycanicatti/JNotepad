@@ -915,15 +915,19 @@ public class JavaNotepad extends javax.swing.JFrame {
     private void saveAs(){
      
         JFileChooser chooser = new JFileChooser();
-        FileNameExtensionFilter filter = new FileNameExtensionFilter(
-            "Text File (*.txt)", "txt");
+        FileNameExtensionFilter filter;
+        if(editorMode)
+            filter = new FileNameExtensionFilter("Code File (*.java, *.cpp, *.py, etc)", " ");
+        else
+            filter = new FileNameExtensionFilter("Text File (*.txt)", "txt");
         chooser.setFileFilter(filter);
         
         int returnVal = chooser.showSaveDialog(this);
         if(returnVal == JFileChooser.APPROVE_OPTION){
             
             File file = chooser.getSelectedFile();
-            String fileName = file.getAbsolutePath()+".txt";
+            String extension = editorMode == true ? "" : ".txt";
+            String fileName = file.getAbsolutePath()+extension;
             File f = new File(fileName);
             currentFileOpen = f;
             saveItem.setEnabled(true);
