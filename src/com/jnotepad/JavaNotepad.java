@@ -31,7 +31,6 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import static java.nio.file.Files.lines;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.logging.Level;
@@ -42,11 +41,10 @@ import javax.swing.ImageIcon;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JColorChooser;
 import javax.swing.JFileChooser;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
@@ -54,8 +52,9 @@ import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.DefaultHighlighter;
-import javax.swing.text.Element;
 import javax.swing.text.Highlighter;
+import javax.tools.JavaCompiler;
+import javax.tools.ToolProvider;
 import say.swing.JFontChooser;
 
 /**
@@ -75,7 +74,7 @@ public class JavaNotepad extends javax.swing.JFrame {
     SystemTray sysTray = null;
     TrayIcon trayIcon;
     boolean wasIconified = false;
-    JavaNotepad myself;
+    JavaNotepad myself = this;
     PrefUtility prefs;
     boolean editorMode = false;
     
@@ -96,7 +95,6 @@ public class JavaNotepad extends javax.swing.JFrame {
             }
         });
         setIcons();
-        myself = this;
         prefs = PrefUtility.getInstance();
         getSizeAndLoc();
         
@@ -125,6 +123,8 @@ public class JavaNotepad extends javax.swing.JFrame {
         addMouseListenerToTextArea();
         addKeyListenerToTextArea();
         
+        lineNumsField.setVisible(false);
+        lineNumsScroll.setVisible(false);
     }
     
     /**
@@ -367,19 +367,19 @@ public class JavaNotepad extends javax.swing.JFrame {
             public void keyReleased(KeyEvent e){
                 if(!editorMode)
                     return;
-                if(e.getKeyCode()==KeyEvent.VK_BACK_SPACE)
+                if(e.getKeyCode()==KeyEvent.VK_BACK_SPACE){
+                    setUpLineNums();
                     return;
+                }
                 else if(e.getKeyCode()==KeyEvent.VK_ENTER){
                     handleEnter();
                     setUpLineNums();
-                    fixLineNums();
                 }
                 
                 char typed = e.getKeyChar();
                 if(typed == '{'){
                     handleOpenBrace();
                     setUpLineNums();
-                    fixLineNums();
                 }
                 else if(typed == '(')
                     handleOpenParens();
@@ -425,17 +425,6 @@ public class JavaNotepad extends javax.swing.JFrame {
             int end = textArea.getLineEndOffset(line);
             String lineText = textArea.getText(start, end - start);
             lineText = lineText.replace("\t", "");
-            System.out.println("Line text from enter: "+lineText);
-            int numDigits = 1;
-            for(int j=0; j<lineText.length(); j++){
-                char c = lineText.charAt(j);
-                if(c == '\t'){
-                    numDigits = j;
-                    break;
-                }
-            }
-            lineText = lineText.replace("\t", "");
-            lineText = lineText.substring(numDigits);
             System.out.println("Line text from Enter: "+lineText);
             if(lineText.startsWith("/*")||lineText.startsWith("*"))
                 textArea.insert("* ", textArea.getCaretPosition());
@@ -475,7 +464,6 @@ public class JavaNotepad extends javax.swing.JFrame {
             textArea.insert("*/", textArea.getCaretPosition());
             textArea.setCaretPosition(pos1+2);
             setUpLineNums();
-            fixLineNums();
         }
     }
     
@@ -527,6 +515,8 @@ public class JavaNotepad extends javax.swing.JFrame {
         statusPanel = new javax.swing.JPanel();
         fileOpenLabel = new javax.swing.JLabel();
         fileWriteLabel = new javax.swing.JLabel();
+        lineNumsScroll = new javax.swing.JScrollPane();
+        lineNumsField = new javax.swing.JTextArea();
         menuBar = new javax.swing.JMenuBar();
         fileMenu = new javax.swing.JMenu();
         newMenuItem = new javax.swing.JMenuItem();
@@ -606,6 +596,17 @@ public class JavaNotepad extends javax.swing.JFrame {
                     .addComponent(fileWriteLabel))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
+
+        lineNumsScroll.setBackground(javax.swing.UIManager.getDefaults().getColor("Button.background"));
+        lineNumsScroll.setHorizontalScrollBar(null);
+
+        lineNumsField.setEditable(false);
+        lineNumsField.setBackground(javax.swing.UIManager.getDefaults().getColor("Button.background"));
+        lineNumsField.setColumns(1);
+        lineNumsField.setFont(new java.awt.Font("Lucida Grande", 0, 14)); // NOI18N
+        lineNumsField.setRows(5);
+        lineNumsField.setFocusable(false);
+        lineNumsScroll.setViewportView(lineNumsField);
 
         fileMenu.setText("File");
 
@@ -831,14 +832,20 @@ public class JavaNotepad extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 650, Short.MAX_VALUE)
             .addComponent(statusPanel, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(lineNumsScroll, javax.swing.GroupLayout.PREFERRED_SIZE, 33, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addGap(0, 0, 0)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 830, Short.MAX_VALUE))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 342, Short.MAX_VALUE)
-                .addGap(1, 1, 1)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 340, Short.MAX_VALUE)
+                        .addGap(1, 1, 1))
+                    .addComponent(lineNumsScroll))
                 .addComponent(statusPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
 
@@ -988,7 +995,6 @@ public class JavaNotepad extends javax.swing.JFrame {
 
     private void fontItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fontItemActionPerformed
         // TODO add your handling code here:
-        
         Font currentFont = textArea.getFont();
         JFontChooser fontChooser = new JFontChooser();
         fontChooser.setSelectedFont(currentFont);
@@ -1002,12 +1008,19 @@ public class JavaNotepad extends javax.swing.JFrame {
         
         int returnVal = fontChooser.showDialog(this);
         if(returnVal == JFontChooser.OK_OPTION){
-            
             Font selectedFont = fontChooser.getSelectedFont();
             textArea.setFont(selectedFont);
+            lineNumsField.setFont(selectedFont);
         }
     }//GEN-LAST:event_fontItemActionPerformed
 
+    /**
+     * Replace tool
+     * 
+     * @param oldS old string to replace 
+     * @param newS new string to replace old string
+     * @return if the old string was found and replaced in the text
+     */
     public boolean replaceItems(String oldS, String newS){
         console.appendToConsole("I'm here.");
         String allText = textArea.getText();
@@ -1019,6 +1032,11 @@ public class JavaNotepad extends javax.swing.JFrame {
         return true;
     }
     
+    /**
+     * Highlighter tool for Find
+     * @param query the search term
+     * @return if all instances of the search term were found and highlighted
+     */
     public boolean highlightFound(String query){
         
         String allText = textArea.getText();
@@ -1034,7 +1052,6 @@ public class JavaNotepad extends javax.swing.JFrame {
                     h.addHighlight(index, index + pattern.length(), hPainter);
                     index = text.indexOf(pattern, index + pattern.length());            
                 } catch (BadLocationException ex) {
-                    ex.printStackTrace();
                 }
             }
             Highlighter.Highlight[] hilites = h.getHighlights();
@@ -1245,74 +1262,60 @@ public class JavaNotepad extends javax.swing.JFrame {
     private void editorModeItemActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editorModeItemActionPerformed
         // TODO add your handling code here:
         editorMode = !editorMode;
-        if(editorMode)
+        lineNumsField.setVisible(editorMode);
+        lineNumsScroll.setVisible(editorMode);
+        this.revalidate();
+        if(editorMode) {
             setUpLineNums();
-    }//GEN-LAST:event_editorModeItemActionPerformed
-
-    private void setUpLineNums(){
-        try {
-            for(int i=0; i<textArea.getLineCount(); i++){
-                int start = textArea.getLineStartOffset(i);
-                boolean insert = false;
-                int curr = 0;
-                try {
-                    String s = textArea.getText(start, 1);
-                    System.out.println("Evaluating: "+s);
-                    curr = Integer.parseInt(s);
-                } catch(NumberFormatException nfe){
-                    System.err.println(nfe.getLocalizedMessage());
-                    insert = true;
-                }
-                if(insert){
-                    textArea.insert(""+(i+1)+"\t", start);
-                }
-            }
-        } catch(BadLocationException ble){
-            System.err.println("Error: "+ble.getLocalizedMessage());
+            addRunMenu();
         }
+        else
+            menuBar.remove(5);
+    }//GEN-LAST:event_editorModeItemActionPerformed
+    
+    private void addRunMenu(){
+        JMenu runMenu = new JMenu("Run");
+        JMenuItem runItem = new JMenuItem("Build and Run");
+        runItem.addActionListener(new ActionListener(){
+            @Override
+            public void actionPerformed(ActionEvent ae){
+                if(currentFileOpen == null)
+                    saveAs();
+                runCode();
+            }
+        });
+        runMenu.add(runItem);
+        menuBar.add(runMenu);
     }
     
-    private void fixLineNums(){
-        try {
-            for(int i=0; i<textArea.getLineCount(); i++){
-                int start = textArea.getLineStartOffset(i);
-                int end = textArea.getLineEndOffset(i);
-                String lineText = textArea.getText(start, (end-start));
-                //System.out.println("Line text in fixLineNums: "+lineText);
-                int numDigits = 1;
-                for(int j=0; j<lineText.length(); j++){
-                    char c = lineText.charAt(j);
-                    if(c == '\t'){
-                        numDigits = j;
-                        break;
-                    }
-                }
-                //System.out.println("Number of digits in fixLineNums: "+numDigits);
-                String text = textArea.getText(start, numDigits);
-                //System.out.println("Text in fixLineNums: "+text);
-                int lNum = Integer.parseInt(text);
-                if(lNum != (i+1))
-                    textArea.replaceRange(""+(i+1), start, start+numDigits);
-            }
-        } catch(BadLocationException ble){
-            System.err.println(ble.getLocalizedMessage());
+    // TODO: write this code
+    private void runCode(){
+        if(currentFileOpen == null)
+            return;
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        System.out.println("About to compile...");
+        int compilationResult = compiler.run(null, System.out, null, currentFileOpen.getAbsolutePath());
+        if(compilationResult == 0)
+            System.out.println("Compilation successful");
+        else
+            System.err.println("Compilation failed");
+    }
+    
+    private void setUpLineNums(){
+        lineNumsField.setText("");
+        for(int i=0; i<textArea.getLineCount(); i++){
+            lineNumsField.append(""+(i+1)+"\n");
         }
     }
     
     class CustomFilter extends javax.swing.filechooser.FileFilter {
-
         @Override
         public boolean accept(File f) {
-            
             return f.isDirectory() || f.getAbsolutePath().endsWith(".txt");
-            
-            //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
-
         @Override
         public String getDescription() {
             return "Text Documents (*.txt)";
-            //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
         }
     }
     
@@ -1362,6 +1365,8 @@ public class JavaNotepad extends javax.swing.JFrame {
     private javax.swing.JMenu helpMenu;
     private javax.swing.JMenuItem highlighterColorItem;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JTextArea lineNumsField;
+    private javax.swing.JScrollPane lineNumsScroll;
     private javax.swing.JMenuBar menuBar;
     private javax.swing.JMenuItem newMenuItem;
     private javax.swing.JMenuItem openFileItem;
